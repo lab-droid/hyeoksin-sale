@@ -14,12 +14,18 @@ import {
   ShoppingBag, 
   TrendingUp,
   Info,
-  User
+  User,
+  LayoutDashboard,
+  HelpCircle,
+  Settings,
+  Dices,
+  Mail,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 // Initialize Gemini
-const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+const getGenAI = (apiKey: string) => new GoogleGenAI({ apiKey });
 
 const MONTHS = [
   "1월", "2월", "3월", "4월", "5월", "6월", 
@@ -106,6 +112,24 @@ export default function App() {
   const [progress, setProgress] = useState(0);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [recommendationCount, setRecommendationCount] = useState(5);
+  const [showHowToUse, setShowHowToUse] = useState(false);
+  const [showMaintenance, setShowMaintenance] = useState(false);
+  
+  // API Key State
+  const [apiKey, setApiKey] = useState<string>(() => {
+    return localStorage.getItem('GEMINI_USER_API_KEY') || process.env.GEMINI_API_KEY || "";
+  });
+  const [showKeyInput, setShowKeyInput] = useState(false);
+  const [tempKey, setTempKey] = useState(apiKey);
+
+  const isKeySet = useMemo(() => apiKey.length > 10, [apiKey]);
+
+  const saveApiKey = () => {
+    localStorage.setItem('GEMINI_USER_API_KEY', tempKey);
+    setApiKey(tempKey);
+    setShowKeyInput(false);
+  };
 
   const toggleItem = (item: string) => {
     setSelectedItems(prev => {
@@ -117,8 +141,14 @@ export default function App() {
     });
   };
 
-  const handleAnalyze = async () => {
+  const handleAnalyze = async (countOverride?: number) => {
+    const count = countOverride || recommendationCount;
     if (selectedItems.length === 0) return;
+    if (!isKeySet) {
+      setError("API 키가 설정되지 않았습니다. 우측 상단에서 키를 입력해주세요.");
+      setShowKeyInput(true);
+      return;
+    }
 
     setIsAnalyzing(true);
     setProgress(0);
@@ -136,7 +166,7 @@ export default function App() {
         당신은 전문 상품 소싱 전문가입니다. 
         사용자가 선택한 시기/시즌: ${selectedItems.join(", ")}
         
-        아래 제공된 키워드 리스트 중에서 위 시기에 판매량이 높을 것으로 예상되는 상품 5~8개를 추천해주세요.
+        아래 제공된 키워드 리스트 중에서 위 시기에 판매량이 높을 것으로 예상되는 상품 딱 ${count}개를 추천해주세요.
         각 상품에 대해 추천 이유와 해당 상품의 계절성(시즌 특징)을 설명해주세요.
         
         키워드 리스트:
@@ -153,7 +183,8 @@ export default function App() {
       `;
 
     try {
-      const response = await genAI.models.generateContent({
+      const ai = getGenAI(apiKey);
+      const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: prompt,
       });
@@ -168,7 +199,7 @@ export default function App() {
       setProgress(100);
     } catch (err) {
       console.error(err);
-      setError("AI 분석 중 오류가 발생했습니다. 다시 시도해주세요.");
+      setError("AI 분석 중 오류가 발생했습니다. API 키가 유효한지 확인해주세요.");
     } finally {
       clearInterval(progressInterval);
       setIsAnalyzing(false);
@@ -180,12 +211,207 @@ export default function App() {
     setRecommendations([]);
     setProgress(0);
     setError(null);
+    setRecommendationCount(5);
+  };
+
+  const handleRandomAnalyze = () => {
+    if (selectedItems.length === 0) {
+      setError("먼저 시기 및 시즌을 선택해주세요.");
+      return;
+    }
+    const random = Math.floor(Math.random() * 10) + 1;
+    setRecommendationCount(random);
+    handleAnalyze(random);
   };
 
   return (
     <div className="min-h-screen bg-[#F5F5F5] text-[#1A1A1A] font-sans">
+      {/* Top Left: How to Use */}
+      <div className="fixed top-6 left-6 z-[100]">
+        <button 
+          onClick={() => setShowHowToUse(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-white rounded-full shadow-lg border border-gray-100 font-bold text-sm hover:scale-105 transition-transform"
+        >
+          <HelpCircle className="w-4 h-4" />
+          <span>사용방법</span>
+        </button>
+      </div>
+
+      {/* API Key & Dashboard Button (Top Right) */}
+      <div className="fixed top-6 right-6 z-[100] flex items-center gap-3">
+        <a 
+          href="https://hyeoksinai.com" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 px-4 py-2 bg-[#1A1A1A] text-white rounded-full shadow-lg font-bold text-sm hover:scale-105 transition-transform"
+        >
+          <LayoutDashboard className="w-4 h-4" />
+          <span className="hidden md:inline">혁신AI 대시보드</span>
+        </a>
+        <div className={`flex items-center gap-2 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest border shadow-sm transition-all duration-500 ${
+          isKeySet 
+            ? 'bg-green-50 text-green-600 border-green-200 shadow-green-100' 
+            : 'bg-red-50 text-red-600 border-red-200 shadow-red-100 animate-pulse'
+        }`}>
+          <div className={`w-2 h-2 rounded-full ${isKeySet ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]'}`} />
+          {isKeySet ? 'API키 인증' : 'API키 미인증'}
+        </div>
+        <button 
+          onClick={() => setShowKeyInput(!showKeyInput)}
+          className="w-10 h-10 bg-white rounded-full shadow-lg border border-gray-100 flex items-center justify-center hover:scale-110 transition-transform"
+        >
+          <Settings className={`w-5 h-5 ${isKeySet ? 'text-[#1A1A1A]' : 'text-red-500'}`} />
+        </button>
+      </div>
+
+      {/* Bottom Right: Maintenance */}
+      <div className="fixed bottom-6 right-6 z-[100]">
+        <button 
+          onClick={() => setShowMaintenance(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-white rounded-full shadow-lg border border-gray-100 font-bold text-xs text-gray-500 hover:text-[#1A1A1A] transition-all"
+        >
+          <Mail className="w-3 h-3" />
+          <span>업데이트/유지보수 문의</span>
+        </button>
+      </div>
+
+      {/* How to Use Modal */}
+      <AnimatePresence>
+        {showHowToUse && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[120] flex items-center justify-center p-6"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-white rounded-3xl p-8 w-full max-w-2xl shadow-2xl max-h-[80vh] overflow-y-auto"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-2xl font-black">혁신 소싱 AI 사용방법</h3>
+                <button onClick={() => setShowHowToUse(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              <div className="space-y-6 text-gray-600 leading-relaxed">
+                <section>
+                  <h4 className="font-black text-[#1A1A1A] mb-2">1. API 키 설정</h4>
+                  <p>우측 상단의 설정 아이콘을 클릭하여 Google Gemini API 키를 입력하세요. 키가 있어야 AI 분석이 가능합니다.</p>
+                </section>
+                <section>
+                  <h4 className="font-black text-[#1A1A1A] mb-2">2. 시기 및 시즌 선택</h4>
+                  <p>분석하고자 하는 월(1월~12월) 또는 특정 시즌(봄, 여름, 명절 등)을 클릭하여 선택하세요. 최대 10개까지 중복 선택이 가능합니다.</p>
+                </section>
+                <section>
+                  <h4 className="font-black text-[#1A1A1A] mb-2">3. 추천 개수 설정</h4>
+                  <p>하단의 카테고리 버튼(3개, 5개, 7개, 10개)을 클릭하여 추천받고 싶은 상품의 개수를 설정하세요. '랜덤 즉시 추천' 버튼을 누르면 AI가 임의의 개수를 정해 즉시 분석을 시작합니다.</p>
+                </section>
+                <section>
+                  <h4 className="font-black text-[#1A1A1A] mb-2">4. 분석 및 결과 확인</h4>
+                  <p>'소싱 상품 추천받기' 버튼을 누르면 AI가 데이터를 분석하여 최적의 상품 리스트와 추천 이유, 시즌 특징을 상세히 알려줍니다.</p>
+                </section>
+              </div>
+              <button 
+                onClick={() => setShowHowToUse(false)}
+                className="w-full mt-8 py-4 bg-[#1A1A1A] text-white rounded-2xl font-bold hover:shadow-xl transition-all"
+              >
+                확인했습니다
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Maintenance Modal */}
+      <AnimatePresence>
+        {showMaintenance && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[120] flex items-center justify-center p-6"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl text-center"
+            >
+              <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Mail className="w-8 h-8" />
+              </div>
+              <h3 className="text-2xl font-black mb-4">업데이트/유지보수 문의</h3>
+              <p className="text-gray-600 mb-6 leading-relaxed">
+                업데이트나 유지보수가 필요할 경우 아래 이메일로 어떤 부분이 필요한지 상세하게 작성 후 보내주세요.
+              </p>
+              <div className="bg-gray-50 p-4 rounded-2xl font-bold text-[#1A1A1A] mb-8 select-all">
+                info@nextin.ai.kr
+              </div>
+              <button 
+                onClick={() => setShowMaintenance(false)}
+                className="w-full py-4 bg-[#1A1A1A] text-white rounded-2xl font-bold hover:shadow-xl transition-all"
+              >
+                닫기
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* API Key Modal */}
+      <AnimatePresence>
+        {showKeyInput && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[150] flex items-center justify-center p-6"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-2xl font-black">Google API Key 설정</h3>
+                <button onClick={() => setShowKeyInput(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              <p className="text-gray-500 text-sm mb-6">
+                Gemini AI 분석을 위해 Google API 키가 필요합니다. 입력하신 키는 브라우저에만 안전하게 저장됩니다.
+              </p>
+              <div className="space-y-4">
+                <div className="relative">
+                  <input 
+                    type="password"
+                    value={tempKey}
+                    onChange={(e) => setTempKey(e.target.value)}
+                    placeholder="API 키를 입력하세요"
+                    className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-[#1A1A1A] focus:outline-none font-medium transition-all"
+                  />
+                </div>
+                <button 
+                  onClick={saveApiKey}
+                  className="w-full py-4 bg-[#1A1A1A] text-white rounded-2xl font-bold hover:shadow-xl transition-all"
+                >
+                  설정 저장하기
+                </button>
+                <p className="text-[10px] text-center text-gray-400">
+                  키가 없으신가요? <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="underline">여기서 무료로 발급받기</a>
+                </p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Hero Section */}
-      <header className="relative w-full aspect-[16/9] overflow-hidden bg-[#1A1A1A]">
+      <header className="relative w-full aspect-[32/9] overflow-hidden bg-[#1A1A1A]">
         <img 
           src="https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&q=80&w=2000" 
           alt="Innovation Sourcing AI" 
@@ -196,7 +422,7 @@ export default function App() {
           <motion.h1 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-4xl md:text-7xl font-black text-white tracking-tighter mb-4"
+            className="text-3xl md:text-5xl font-black text-white tracking-tighter mb-2"
           >
             혁신 소싱 AI
           </motion.h1>
@@ -204,14 +430,14 @@ export default function App() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2 }}
-            className="text-lg md:text-xl text-gray-300 font-light"
+            className="text-sm md:text-base text-gray-300 font-light"
           >
             데이터 기반 시즌별 최적의 상품 소싱 솔루션
           </motion.p>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 py-12 -mt-20 relative z-10">
+      <main className="max-w-5xl mx-auto px-4 py-12 -mt-12 relative z-10">
         <div className="bg-white rounded-3xl shadow-2xl p-8 md:p-12 border border-gray-100">
           
           {/* Progress Bar */}
@@ -284,6 +510,49 @@ export default function App() {
                 <div className="text-sm text-gray-400 mb-6 flex items-center gap-2">
                   <Info className="w-4 h-4" />
                   <span>선택된 항목: {selectedItems.length} / 10</span>
+                </div>
+
+                {/* Recommendation Count Selector */}
+                <div className="mb-10 w-full max-w-2xl">
+                  <div className="flex justify-between items-center mb-6">
+                    <div className="flex flex-col">
+                      <h3 className="text-sm font-black uppercase tracking-widest text-gray-400">추천받을 개수 설정</h3>
+                      <p className="text-[10px] text-gray-400 mt-1">원하시는 추천 상품의 개수를 카테고리별로 선택하세요.</p>
+                    </div>
+                    <button 
+                      onClick={handleRandomAnalyze}
+                      className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-full text-xs font-black hover:bg-indigo-100 transition-all border border-indigo-100 shadow-sm"
+                    >
+                      <Dices className="w-3.5 h-3.5" />
+                      랜덤 즉시 추천
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {[
+                      { label: '최소 추천', count: 3, desc: '핵심 상품 위주' },
+                      { label: '기본 추천', count: 5, desc: '가장 대중적인 구성' },
+                      { label: '심화 추천', count: 7, desc: '다양한 대안 포함' },
+                      { label: '최대 추천', count: 10, desc: '광범위한 시장 분석' }
+                    ].map((cat) => (
+                      <button
+                        key={cat.count}
+                        onClick={() => setRecommendationCount(cat.count)}
+                        className={`flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all duration-300 ${
+                          recommendationCount === cat.count
+                            ? 'bg-[#1A1A1A] border-[#1A1A1A] text-white shadow-xl scale-105'
+                            : 'bg-white border-gray-100 text-gray-500 hover:border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        <span className="text-lg font-black mb-1">{cat.count}개</span>
+                        <span className={`text-[10px] font-bold ${recommendationCount === cat.count ? 'text-gray-400' : 'text-gray-400'}`}>
+                          {cat.label}
+                        </span>
+                        <span className={`text-[9px] mt-1 opacity-60 ${recommendationCount === cat.count ? 'text-gray-300' : 'text-gray-400'}`}>
+                          {cat.desc}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 
                 <button
