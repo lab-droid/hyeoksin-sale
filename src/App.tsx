@@ -229,50 +229,50 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F5F5] text-[#1A1A1A] font-sans">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 text-[#1A1A1A] font-sans selection:bg-indigo-100">
       {/* Top Left: How to Use */}
       <div className="fixed top-6 left-6 z-[100]">
         <button 
           onClick={() => setShowHowToUse(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-white rounded-full shadow-lg border border-gray-100 font-bold text-sm hover:scale-105 transition-transform"
+          className="flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-md rounded-full shadow-lg border border-white/50 font-bold text-sm hover:scale-105 transition-all text-indigo-900"
         >
           <HelpCircle className="w-4 h-4" />
           <span>사용방법</span>
         </button>
       </div>
 
-      {/* API Key & Dashboard Button (Top Right) */}
+      {/* API Key (Top Right) */}
       <div className="fixed top-6 right-6 z-[100] flex items-center gap-3">
-        <a 
-          href="https://hyeoksinai.com" 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="flex items-center gap-2 px-4 py-2 bg-[#1A1A1A] text-white rounded-full shadow-lg font-bold text-sm hover:scale-105 transition-transform"
-        >
-          <LayoutDashboard className="w-4 h-4" />
-          <span className="hidden md:inline">혁신AI 대시보드</span>
-        </a>
-        <div className={`flex items-center gap-2 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest border shadow-sm transition-all duration-500 ${
+        <div className={`flex items-center gap-2 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest border shadow-sm transition-all duration-500 backdrop-blur-md ${
           isKeySet 
-            ? 'bg-green-50 text-green-600 border-green-200 shadow-green-100' 
-            : 'bg-red-50 text-red-600 border-red-200 shadow-red-100 animate-pulse'
+            ? 'bg-green-50/80 text-green-600 border-green-200 shadow-green-100' 
+            : 'bg-red-50/80 text-red-600 border-red-200 shadow-red-100 animate-pulse'
         }`}>
           <div className={`w-2 h-2 rounded-full ${isKeySet ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]'}`} />
           {isKeySet ? 'API키 인증' : 'API키 미인증'}
         </div>
         <button 
           onClick={() => setShowKeyInput(!showKeyInput)}
-          className="w-10 h-10 bg-white rounded-full shadow-lg border border-gray-100 flex items-center justify-center hover:scale-110 transition-transform"
+          className="w-10 h-10 bg-white/80 backdrop-blur-md rounded-full shadow-lg border border-white/50 flex items-center justify-center hover:scale-110 transition-all"
         >
-          <Settings className={`w-5 h-5 ${isKeySet ? 'text-[#1A1A1A]' : 'text-red-500'}`} />
+          <Settings className={`w-5 h-5 ${isKeySet ? 'text-indigo-900' : 'text-red-500'}`} />
         </button>
       </div>
 
-      {/* Bottom Right: Maintenance */}
-      <div className="fixed bottom-6 right-6 z-[100]">
+      {/* Bottom Right: Maintenance & Dashboard */}
+      <div className="fixed bottom-6 right-6 z-[100] flex flex-col gap-3 items-end">
+        <a 
+          href="https://hyeoksinai.com" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-md rounded-full shadow-lg border border-white/50 font-bold text-xs text-gray-500 hover:text-indigo-900 transition-all"
+        >
+          <LayoutDashboard className="w-4 h-4" />
+          <span>혁신 AI 대시보드 바로가기</span>
+        </a>
         <button 
           onClick={() => setShowMaintenance(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-white rounded-full shadow-lg border border-gray-100 font-bold text-xs text-gray-500 hover:text-[#1A1A1A] transition-all"
+          className="flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-md rounded-full shadow-lg border border-white/50 font-bold text-xs text-gray-500 hover:text-indigo-900 transition-all"
         >
           <Mail className="w-3 h-3" />
           <span>업데이트/유지보수 문의</span>
@@ -295,7 +295,7 @@ export default function App() {
               className="bg-white rounded-3xl p-8 w-full max-w-2xl shadow-2xl max-h-[80vh] overflow-y-auto"
             >
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-2xl font-black">혁신 소싱 AI 사용방법</h3>
+                <h3 className="text-2xl font-black">돈버는 소싱 AI 사용방법</h3>
                 <button onClick={() => setShowHowToUse(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
                   <X className="w-6 h-6" />
                 </button>
@@ -387,7 +387,7 @@ export default function App() {
                 </button>
               </div>
               <p className="text-gray-500 text-sm mb-6">
-                Gemini AI 분석을 위해 Google API 키가 필요합니다. 입력하신 키는 브라우저에만 안전하게 저장됩니다.
+                돈버는 소싱 AI 분석을 위해 Google API 키가 필요합니다. 입력하신 키는 브라우저에만 안전하게 저장됩니다.
               </p>
               <div className="space-y-4">
                 <div className="relative">
@@ -415,34 +415,44 @@ export default function App() {
       </AnimatePresence>
 
       {/* Hero Section */}
-      <header className="relative w-full aspect-[32/9] overflow-hidden bg-[#1A1A1A]">
+      <header className="relative w-full aspect-[21/9] md:aspect-[32/9] overflow-hidden bg-indigo-900">
+        <div className="absolute inset-0 bg-gradient-to-r from-indigo-900/90 to-purple-900/80 z-10" />
         <img 
-          src="https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&q=80&w=2000" 
-          alt="Innovation Sourcing AI" 
-          className="w-full h-full object-cover opacity-60"
+          src="https://images.unsplash.com/photo-1565514020179-026b92b84bb6?auto=format&fit=crop&q=80&w=2000" 
+          alt="돈버는 소싱 AI" 
+          className="w-full h-full object-cover opacity-40 mix-blend-overlay"
           referrerPolicy="no-referrer"
         />
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6">
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 z-20">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white/90 text-xs font-bold mb-6"
+          >
+            <TrendingUp className="w-3.5 h-3.5" />
+            <span>AI 기반 최적화 소싱 솔루션</span>
+          </motion.div>
           <motion.h1 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-3xl md:text-5xl font-black text-white tracking-tighter mb-2"
+            className="text-4xl md:text-6xl font-black text-white tracking-tighter mb-4 drop-shadow-lg"
           >
-            혁신 소싱 AI
+            <span className="text-yellow-400">돈</span>버는 소싱 AI
           </motion.h1>
           <motion.p 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2 }}
-            className="text-sm md:text-base text-gray-300 font-light"
+            className="text-sm md:text-lg text-indigo-100/90 font-medium max-w-2xl"
           >
-            데이터 기반 시즌별 최적의 상품 소싱 솔루션
+            대한민국 100만 개 이상의 상품 데이터를 <span className="text-yellow-400">돈</span>버는 소싱 AI가 분석하여<br className="hidden md:block" />
+            시즌별 가장 강력한 매출을 발생시킬 최적의 상품을 발굴합니다.
           </motion.p>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 py-12 -mt-12 relative z-10">
-        <div className="bg-white rounded-3xl shadow-2xl p-8 md:p-12 border border-gray-100">
+      <main className="max-w-5xl mx-auto px-4 py-12 -mt-16 md:-mt-24 relative z-30">
+        <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-[0_8px_32px_rgba(0,0,0,0.08)] p-8 md:p-12 border border-white/50">
           
           {/* Progress Bar */}
           {isAnalyzing || progress > 0 ? (
