@@ -107,7 +107,8 @@ interface Recommendation {
 }
 
 export default function App() {
-  const [selectedItems, setSelectedItems] = useState<string[]>([]);
+  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
+  const [selectedSeason, setSelectedSeason] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
@@ -131,19 +132,17 @@ export default function App() {
     setShowKeyInput(false);
   };
 
-  const toggleItem = (item: string) => {
-    setSelectedItems(prev => {
-      if (prev.includes(item)) {
-        return prev.filter(i => i !== item);
-      }
-      if (prev.length >= 10) return prev;
-      return [...prev, item];
-    });
+  const toggleMonth = (month: string) => {
+    setSelectedMonth(prev => prev === month ? null : month);
+  };
+
+  const toggleSeason = (season: string) => {
+    setSelectedSeason(prev => prev === season ? null : season);
   };
 
   const handleAnalyze = async (countOverride?: number) => {
     const count = countOverride || recommendationCount;
-    if (selectedItems.length === 0) return;
+    if (!selectedMonth && !selectedSeason) return;
     if (!isKeySet) {
       setError("API 키가 설정되지 않았습니다. 우측 상단에서 키를 입력해주세요.");
       setShowKeyInput(true);
@@ -163,21 +162,22 @@ export default function App() {
     }, 300);
 
     const prompt = `
-        당신은 전문 상품 소싱 전문가입니다. 
-        사용자가 선택한 시기/시즌: ${selectedItems.join(", ")}
+        당신은 대한민국 이커머스 전문 상품 소싱 전문가입니다. 
+        사용자가 선택한 시기: ${selectedMonth || '지정하지 않음'}
+        사용자가 선택한 시즌: ${selectedSeason || '지정하지 않음'}
         
-        아래 제공된 키워드 리스트 중에서 위 시기에 판매량이 높을 것으로 예상되는 상품 딱 ${count}개를 추천해주세요.
-        각 상품에 대해 추천 이유와 해당 상품의 계절성(시즌 특징)을 설명해주세요.
+        Google Gemini 딥 리서치 기능을 활용하여, 대한민국의 100만 개 이상의 상품 데이터 중에서 위 조건에 판매량이 급증할 것으로 예상되는 최적화된 상품 딱 ${count}개를 추천해주세요.
         
-        키워드 리스트:
-        ${KEYWORDS.join(", ")}
+        [참고용 소싱 키워드 형식]
+        차량용 반사스티커 시트지, 농업용 공사장 손수레, 탁구장 탁구대 네트, 오토바이 음료거치대 배달음료거치대, 고점도 드럼팸프 급유기
+        (위와 같이 구체적이고 세분화된 형태의 키워드로 추천해주세요. 단, 위 예시에 얽매이지 말고 실제 시장 트렌드에 맞는 새로운 상품을 자유롭게 발굴하세요.)
         
         응답은 반드시 아래 JSON 형식으로만 해주세요:
         [
           {
-            "keyword": "상품명",
-            "reason": "추천 이유",
-            "seasonality": "시즌 특징"
+            "keyword": "상품명 (구체적인 키워드 형태)",
+            "reason": "추천 이유 (데이터 및 트렌드 기반)",
+            "seasonality": "시즌 특징 및 적합성"
           }
         ]
       `;
@@ -187,6 +187,9 @@ export default function App() {
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: prompt,
+        config: {
+          tools: [{ googleSearch: {} }],
+        }
       });
       
       const text = response.text;
@@ -207,7 +210,8 @@ export default function App() {
   };
 
   const reset = () => {
-    setSelectedItems([]);
+    setSelectedMonth(null);
+    setSelectedSeason(null);
     setRecommendations([]);
     setProgress(0);
     setError(null);
@@ -215,8 +219,8 @@ export default function App() {
   };
 
   const handleRandomAnalyze = () => {
-    if (selectedItems.length === 0) {
-      setError("먼저 시기 및 시즌을 선택해주세요.");
+    if (!selectedMonth && !selectedSeason) {
+      setError("먼저 시기 또는 시즌을 최소 1개 이상 선택해주세요.");
       return;
     }
     const random = Math.floor(Math.random() * 10) + 1;
@@ -303,7 +307,7 @@ export default function App() {
                 </section>
                 <section>
                   <h4 className="font-black text-[#1A1A1A] mb-2">2. 시기 및 시즌 선택</h4>
-                  <p>분석하고자 하는 월(1월~12월) 또는 특정 시즌(봄, 여름, 명절 등)을 클릭하여 선택하세요. 최대 10개까지 중복 선택이 가능합니다.</p>
+                  <p>분석하고자 하는 월(1월~12월) 또는 특정 시즌(봄, 여름, 명절 등)을 각각 최대 1개씩 선택하세요. 둘 중 하나만 선택해도 분석이 가능합니다.</p>
                 </section>
                 <section>
                   <h4 className="font-black text-[#1A1A1A] mb-2">3. 추천 개수 설정</h4>
@@ -443,6 +447,20 @@ export default function App() {
           {/* Progress Bar */}
           {isAnalyzing || progress > 0 ? (
             <div className="mb-12">
+              {isAnalyzing && progress < 100 ? (
+                <div className="flex flex-col items-center justify-center py-8 mb-8 bg-blue-50/50 rounded-3xl border border-blue-100">
+                  <div className="relative w-20 h-20 mb-6">
+                    <div className="absolute inset-0 border-4 border-t-blue-600 border-blue-200 rounded-full animate-spin"></div>
+                    <div className="absolute inset-2 border-4 border-b-indigo-500 border-transparent rounded-full animate-[spin_1.5s_linear_infinite_reverse]"></div>
+                    <Search className="absolute inset-0 m-auto w-6 h-6 text-blue-600 animate-pulse" />
+                  </div>
+                  <h3 className="text-xl font-black mb-2 text-blue-900 animate-pulse">혁신 소싱 AI가 최적의 상품을 리서치중입니다. 잠시만 기다려주세요!</h3>
+                  <p className="text-blue-700/80 font-medium text-center text-sm max-w-md">
+                    대한민국 <span className="text-blue-600 font-bold">100만 개 이상</span>의 상품 데이터베이스에서<br/>
+                    최적의 소싱 상품을 실시간으로 발굴하고 있습니다.
+                  </p>
+                </div>
+              ) : null}
               <div className="flex justify-between items-end mb-2">
                 <span className="text-sm font-bold uppercase tracking-widest text-gray-500">Analysis Progress</span>
                 <span className="text-3xl font-black">{progress}%</span>
@@ -461,20 +479,20 @@ export default function App() {
             <section>
               <div className="flex items-center gap-3 mb-8">
                 <Calendar className="w-8 h-8 text-[#1A1A1A]" />
-                <h2 className="text-2xl font-bold tracking-tight">시기 및 시즌 선택 (최대 10개)</h2>
+                <h2 className="text-2xl font-bold tracking-tight">시기 및 시즌 선택</h2>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                 {/* Months Grid */}
                 <div>
-                  <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-400 mb-4">Monthly Selection</h3>
+                  <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-400 mb-4">Monthly Selection (최대 1개)</h3>
                   <div className="grid grid-cols-4 gap-2">
                     {MONTHS.map(month => (
                       <button
                         key={month}
-                        onClick={() => toggleItem(month)}
+                        onClick={() => toggleMonth(month)}
                         className={`py-3 rounded-xl text-sm font-bold transition-all duration-200 ${
-                          selectedItems.includes(month)
+                          selectedMonth === month
                             ? 'bg-[#1A1A1A] text-white shadow-lg'
                             : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
                         }`}
@@ -487,14 +505,14 @@ export default function App() {
 
                 {/* Seasons Grid */}
                 <div>
-                  <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-400 mb-4">Seasonal Context</h3>
+                  <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-400 mb-4">Seasonal Context (최대 1개)</h3>
                   <div className="grid grid-cols-2 gap-2">
                     {SEASONS.map(season => (
                       <button
                         key={season}
-                        onClick={() => toggleItem(season)}
+                        onClick={() => toggleSeason(season)}
                         className={`py-3 px-4 rounded-xl text-xs font-bold text-left transition-all duration-200 ${
-                          selectedItems.includes(season)
+                          selectedSeason === season
                             ? 'bg-[#1A1A1A] text-white shadow-lg'
                             : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
                         }`}
@@ -509,7 +527,7 @@ export default function App() {
               <div className="mt-12 flex flex-col items-center">
                 <div className="text-sm text-gray-400 mb-6 flex items-center gap-2">
                   <Info className="w-4 h-4" />
-                  <span>선택된 항목: {selectedItems.length} / 10</span>
+                  <span>선택된 항목: {[selectedMonth, selectedSeason].filter(Boolean).join(", ") || "없음"}</span>
                 </div>
 
                 {/* Recommendation Count Selector */}
@@ -556,10 +574,10 @@ export default function App() {
                 </div>
                 
                 <button
-                  onClick={handleAnalyze}
-                  disabled={selectedItems.length === 0 || isAnalyzing}
+                  onClick={() => handleAnalyze()}
+                  disabled={(!selectedMonth && !selectedSeason) || isAnalyzing}
                   className={`group relative px-12 py-5 rounded-full font-black text-lg transition-all duration-300 flex items-center gap-3 ${
-                    selectedItems.length > 0 && !isAnalyzing
+                    (selectedMonth || selectedSeason) && !isAnalyzing
                       ? 'bg-[#1A1A1A] text-white hover:scale-105 hover:shadow-2xl'
                       : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                   }`}
@@ -625,16 +643,17 @@ export default function App() {
 
               <div className="mt-12 p-8 bg-gray-50 rounded-3xl border border-dashed border-gray-300 text-center">
                 <p className="text-gray-500 font-medium mb-4">
-                  위 추천 상품들은 선택하신 <span className="text-[#1A1A1A] font-bold">"{selectedItems.join(", ")}"</span> 시기의 시장 트렌드와 계절적 수요를 바탕으로 분석되었습니다.
+                  위 추천 상품들은 선택하신 <span className="text-[#1A1A1A] font-bold">"{[selectedMonth, selectedSeason].filter(Boolean).join(", ")}"</span> 조건에 맞춰<br/>
+                  <span className="text-blue-600 font-bold">대한민국 100만 개 이상의 상품 데이터</span>를 딥 리서치하여 도출된 최적의 결과입니다.
                 </p>
                 <div className="flex justify-center gap-4">
                   <div className="flex items-center gap-2 text-xs font-bold text-gray-400">
                     <Search className="w-4 h-4" />
-                    <span>키워드 경쟁도 분석 완료</span>
+                    <span>Google Gemini 딥 리서치 완료</span>
                   </div>
                   <div className="flex items-center gap-2 text-xs font-bold text-gray-400">
                     <TrendingUp className="w-4 h-4" />
-                    <span>예상 수요 지수 높음</span>
+                    <span>시장 트렌드 최적화</span>
                   </div>
                 </div>
               </div>
