@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import * as React from 'react';
 import { useState, useEffect, useMemo } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { 
@@ -19,10 +20,52 @@ import {
   HelpCircle,
   Settings,
   Dices,
+  Lock,
+  Unlock,
+  ShieldCheck,
+  AlertTriangle,
   Mail,
   X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+
+// Error Boundary Component
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: Error | null }> {
+  state = { hasError: false, error: null as Error | null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("ErrorBoundary caught an error", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-slate-950 p-6 text-center">
+          <div className="max-w-md w-full bg-slate-900/50 backdrop-blur-xl border border-red-500/30 rounded-3xl p-8 shadow-2xl shadow-red-500/10">
+            <div className="w-16 h-16 bg-red-500/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <AlertTriangle className="w-8 h-8 text-red-500" />
+            </div>
+            <h2 className="text-2xl font-bold text-white mb-4">문제가 발생했습니다</h2>
+            <p className="text-slate-400 mb-8 leading-relaxed">
+              {this.state.error?.message || "알 수 없는 오류가 발생했습니다. 페이지를 새로고침 해주세요."}
+            </p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="w-full py-4 bg-red-500 hover:bg-red-600 text-white font-bold rounded-2xl transition-all duration-300 shadow-lg shadow-red-500/20"
+            >
+              새로고침
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return (this as any).props.children;
+  }
+}
 
 // Initialize Gemini
 const getGenAI = (apiKey: string) => new GoogleGenAI({ apiKey });
@@ -193,16 +236,29 @@ export default function App() {
       });
       
       const text = response.text;
+      if (!text) throw new Error("AI로부터 응답을 받지 못했습니다.");
       
-      // Clean JSON string if model adds markdown blocks
-      const jsonStr = text.replace(/```json|```/g, "").trim();
+      // Robust JSON extraction
+      let jsonStr = text;
+      const jsonMatch = text.match(/\[\s*\{[\s\S]*\}\s*\]/);
+      if (jsonMatch) {
+        jsonStr = jsonMatch[0];
+      } else {
+        // Fallback: strip markdown blocks
+        jsonStr = text.replace(/```json|```/g, "").trim();
+      }
+
       const data = JSON.parse(jsonStr);
+      
+      if (!Array.isArray(data)) {
+        throw new Error("추천 데이터 형식이 올바르지 않습니다.");
+      }
       
       setRecommendations(data);
       setProgress(100);
     } catch (err) {
-      console.error(err);
-      setError("AI 분석 중 오류가 발생했습니다. API 키가 유효한지 확인해주세요.");
+      console.error("Analysis Error:", err);
+      setError(err instanceof Error ? err.message : "AI 분석 중 오류가 발생했습니다. API 키가 유효한지 확인해주세요.");
     } finally {
       clearInterval(progressInterval);
       setIsAnalyzing(false);
@@ -245,17 +301,21 @@ export default function App() {
       <div className="fixed top-6 right-6 z-[100] flex items-center gap-3">
         <div className={`flex items-center gap-2 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest border shadow-sm transition-all duration-500 backdrop-blur-md ${
           isKeySet 
-            ? 'bg-green-50/80 text-green-600 border-green-200 shadow-green-100' 
-            : 'bg-red-50/80 text-red-600 border-red-200 shadow-red-100 animate-pulse'
+            ? 'bg-green-50/90 text-green-600 border-green-200 shadow-green-100' 
+            : 'bg-red-50/90 text-red-600 border-red-200 shadow-red-100 animate-pulse'
         }`}>
-          <div className={`w-2 h-2 rounded-full ${isKeySet ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]'}`} />
-          {isKeySet ? 'API키 인증' : 'API키 미인증'}
+          {isKeySet ? <ShieldCheck className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+          {isKeySet ? 'API키 인증됨' : 'API키 미인증'}
         </div>
         <button 
           onClick={() => setShowKeyInput(!showKeyInput)}
-          className="w-10 h-10 bg-white/80 backdrop-blur-md rounded-full shadow-lg border border-white/50 flex items-center justify-center hover:scale-110 transition-all"
+          className={`w-10 h-10 backdrop-blur-md rounded-full shadow-lg border flex items-center justify-center hover:scale-110 transition-all ${
+            isKeySet 
+              ? 'bg-white/80 border-white/50 text-indigo-900' 
+              : 'bg-red-500/20 border-red-500/40 text-red-500'
+          }`}
         >
-          <Settings className={`w-5 h-5 ${isKeySet ? 'text-indigo-900' : 'text-red-500'}`} />
+          <Settings className={`w-5 h-5 ${!isKeySet && 'animate-spin-slow'}`} />
         </button>
       </div>
 
@@ -418,7 +478,7 @@ export default function App() {
       <header className="relative w-full aspect-[21/9] md:aspect-[32/9] overflow-hidden bg-indigo-900">
         <div className="absolute inset-0 bg-gradient-to-r from-indigo-900/90 to-purple-900/80 z-10" />
         <img 
-          src="https://images.unsplash.com/photo-1565514020179-026b92b84bb6?auto=format&fit=crop&q=80&w=2000" 
+          src="https://picsum.photos/seed/money/1920/1080?blur=2" 
           alt="돈버는 소싱 AI" 
           className="w-full h-full object-cover opacity-40 mix-blend-overlay"
           referrerPolicy="no-referrer"
@@ -445,45 +505,54 @@ export default function App() {
             transition={{ delay: 0.2 }}
             className="text-sm md:text-lg text-indigo-100/90 font-medium max-w-2xl"
           >
-            대한민국 100만 개 이상의 상품 데이터를 <span className="text-yellow-400">돈</span>버는 소싱 AI가 분석하여<br className="hidden md:block" />
+            대한민국 100만 개 이상의 상품 데이터를 <span className="text-yellow-400 font-bold">돈</span>버는 소싱 AI가 분석하여<br className="hidden md:block" />
             시즌별 가장 강력한 매출을 발생시킬 최적의 상품을 발굴합니다.
           </motion.p>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 py-12 -mt-16 md:-mt-24 relative z-30">
+      <main className={`max-w-5xl mx-auto px-4 py-12 -mt-16 md:-mt-24 relative z-30 transition-all duration-700 ${!isKeySet && 'blur-sm grayscale opacity-50 pointer-events-none'}`}>
         <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-[0_8px_32px_rgba(0,0,0,0.08)] p-8 md:p-12 border border-white/50">
           
           {/* Progress Bar */}
-          {isAnalyzing || progress > 0 ? (
-            <div className="mb-12">
-              {isAnalyzing && progress < 100 ? (
-                <div className="flex flex-col items-center justify-center py-8 mb-8 bg-blue-50/50 rounded-3xl border border-blue-100">
-                  <div className="relative w-20 h-20 mb-6">
-                    <div className="absolute inset-0 border-4 border-t-blue-600 border-blue-200 rounded-full animate-spin"></div>
-                    <div className="absolute inset-2 border-4 border-b-indigo-500 border-transparent rounded-full animate-[spin_1.5s_linear_infinite_reverse]"></div>
-                    <Search className="absolute inset-0 m-auto w-6 h-6 text-blue-600 animate-pulse" />
+          <AnimatePresence>
+            {isAnalyzing && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6"
+              >
+                <div className="max-w-md w-full text-center">
+                  <div className="relative w-24 h-24 mx-auto mb-8">
+                    <motion.div 
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+                      className="absolute inset-0 rounded-full border-t-2 border-r-2 border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.5)]"
+                    />
+                    <motion.div 
+                      animate={{ rotate: -360 }}
+                      transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                      className="absolute inset-3 rounded-full border-b-2 border-l-2 border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.5)]"
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <TrendingUp className="w-8 h-8 text-indigo-400 animate-pulse" />
+                    </div>
                   </div>
-                  <h3 className="text-xl font-black mb-2 text-blue-900 animate-pulse">혁신 소싱 AI가 최적의 상품을 리서치중입니다. 잠시만 기다려주세요!</h3>
-                  <p className="text-blue-700/80 font-medium text-center text-sm max-w-md">
-                    대한민국 <span className="text-blue-600 font-bold">100만 개 이상</span>의 상품 데이터베이스에서<br/>
-                    최적의 소싱 상품을 실시간으로 발굴하고 있습니다.
-                  </p>
+                  <h3 className="text-2xl font-black text-white mb-4">혁신 소싱 AI가 최적의 상품을 리서치중입니다.</h3>
+                  <p className="text-slate-400 mb-8 font-medium">잠시만 기다려주세요! 대한민국 100만개 이상의 상품 데이터를 분석하고 있습니다.</p>
+                  <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden mb-4">
+                    <motion.div 
+                      className="h-full bg-gradient-to-r from-indigo-500 to-purple-500"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${progress}%` }}
+                    />
+                  </div>
+                  <div className="text-indigo-400 font-mono text-sm font-bold">{progress}% 분석 완료</div>
                 </div>
-              ) : null}
-              <div className="flex justify-between items-end mb-2">
-                <span className="text-sm font-bold uppercase tracking-widest text-gray-500">Analysis Progress</span>
-                <span className="text-3xl font-black">{progress}%</span>
-              </div>
-              <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-                <motion.div 
-                  className="h-full bg-[#1A1A1A]"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${progress}%` }}
-                />
-              </div>
-            </div>
-          ) : null}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {recommendations.length === 0 ? (
             <section>
@@ -685,6 +754,39 @@ export default function App() {
         </div>
         <p className="text-xs text-gray-400">© 2026 혁신 소싱 AI. All rights reserved.</p>
       </footer>
+
+      {/* API Key Required Overlay */}
+      <AnimatePresence>
+        {!isKeySet && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-sm flex items-center justify-center p-6"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="max-w-lg w-full bg-white rounded-[2.5rem] p-10 text-center shadow-2xl border-2 border-red-100"
+            >
+              <div className="w-20 h-20 bg-red-50 rounded-3xl flex items-center justify-center mx-auto mb-8">
+                <Lock className="w-10 h-10 text-red-500" />
+              </div>
+              <h2 className="text-3xl font-black text-gray-900 mb-4">서비스 이용 불가</h2>
+              <p className="text-gray-500 mb-10 leading-relaxed text-lg font-medium">
+                돈버는 소싱 AI를 사용하기 위해서는 <span className="text-red-500 font-black underline underline-offset-4">Google API 키 인증</span>이 반드시 필요합니다.<br />
+                우측 상단의 설정 버튼을 통해 키를 등록해주세요.
+              </p>
+              <button 
+                onClick={() => setShowKeyInput(true)}
+                className="w-full py-5 bg-red-500 hover:bg-red-600 text-white font-bold rounded-2xl transition-all duration-300 shadow-lg shadow-red-200 flex items-center justify-center gap-3 text-lg group"
+              >
+                <Settings className="w-6 h-6 group-hover:rotate-90 transition-transform" />
+                API 키 설정하러 가기
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
