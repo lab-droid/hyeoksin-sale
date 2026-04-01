@@ -25,7 +25,8 @@ import {
   ShieldCheck,
   AlertTriangle,
   Mail,
-  X
+  X,
+  Coins
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -69,6 +70,28 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 
 // Initialize Gemini
 const getGenAI = (apiKey: string) => new GoogleGenAI({ apiKey });
+
+const generateWithRetry = async (ai: any, params: any, maxRetries = 3) => {
+  let lastError;
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await ai.models.generateContent(params);
+    } catch (err: any) {
+      lastError = err;
+      const errorMessage = err.message || String(err);
+      const isUnavailable = errorMessage.includes("503") || errorMessage.includes("UNAVAILABLE");
+      
+      if (isUnavailable && i < maxRetries - 1) {
+        // Exponential backoff: 1s, 2s, 4s... + some jitter
+        const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastError;
+};
 
 const MONTHS = [
   "1월", "2월", "3월", "4월", "5월", "6월", 
@@ -159,6 +182,7 @@ export default function App() {
   const [recommendationCount, setRecommendationCount] = useState(5);
   const [showHowToUse, setShowHowToUse] = useState(false);
   const [showMaintenance, setShowMaintenance] = useState(false);
+  const [showCostInfo, setShowCostInfo] = useState(false);
   
   // API Key State
   const [apiKey, setApiKey] = useState<string>(() => {
@@ -227,7 +251,7 @@ export default function App() {
 
     try {
       const ai = getGenAI(apiKey);
-      const response = await ai.models.generateContent({
+      const response = await generateWithRetry(ai, {
         model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
@@ -258,7 +282,12 @@ export default function App() {
       setProgress(100);
     } catch (err) {
       console.error("Analysis Error:", err);
-      setError(err instanceof Error ? err.message : "AI 분석 중 오류가 발생했습니다. API 키가 유효한지 확인해주세요.");
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      if (errorMessage.includes("503") || errorMessage.includes("UNAVAILABLE")) {
+        setError("현재 AI 서비스 이용량이 많아 일시적으로 연결이 원활하지 않습니다. 잠시 후 다시 시도해주세요.");
+      } else {
+        setError(errorMessage || "AI 분석 중 오류가 발생했습니다. API 키가 유효한지 확인해주세요.");
+      }
     } finally {
       clearInterval(progressInterval);
       setIsAnalyzing(false);
@@ -307,6 +336,13 @@ export default function App() {
           {isKeySet ? <ShieldCheck className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
           {isKeySet ? 'API키 인증됨' : 'API키 미인증'}
         </div>
+        <button 
+          onClick={() => setShowCostInfo(true)}
+          className="w-10 h-10 bg-white/80 backdrop-blur-md rounded-full shadow-lg border border-white/50 flex items-center justify-center hover:scale-110 transition-all text-yellow-600"
+          title="API 비용 안내"
+        >
+          <Coins className="w-5 h-5" />
+        </button>
         <button 
           onClick={() => setShowKeyInput(!showKeyInput)}
           className={`w-10 h-10 backdrop-blur-md rounded-full shadow-lg border flex items-center justify-center hover:scale-110 transition-all ${
@@ -417,6 +453,94 @@ export default function App() {
               <button 
                 onClick={() => setShowMaintenance(false)}
                 className="w-full py-4 bg-[#1A1A1A] text-white rounded-2xl font-bold hover:shadow-xl transition-all"
+              >
+                닫기
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* API Cost Info Modal */}
+      <AnimatePresence>
+        {showCostInfo && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[150] flex items-center justify-center p-6"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-yellow-50 rounded-xl flex items-center justify-center text-yellow-600">
+                    <Coins className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-2xl font-black">API 이용 비용 안내</h3>
+                </div>
+                <button onClick={() => setShowCostInfo(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <div className="space-y-6">
+                <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
+                  <h4 className="font-black text-indigo-900 mb-1 text-sm">사용 모델: Gemini 3 Flash</h4>
+                  <p className="text-xs text-indigo-700 leading-relaxed">
+                    본 앱은 구글의 최신 경량 모델인 Gemini 3 Flash를 사용하여 빠르고 정확한 분석을 제공합니다.
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <h5 className="text-sm font-black mb-2 flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+                      무료 티어 (Free of Charge)
+                    </h5>
+                    <ul className="text-xs text-gray-600 space-y-1.5 ml-3.5 list-disc">
+                      <li>분당 최대 15회 호출 가능 (15 RPM)</li>
+                      <li>분당 최대 100만 토큰 처리 (1M TPM)</li>
+                      <li>일일 최대 1,500회 호출 가능 (1,500 RPD)</li>
+                      <li className="font-bold text-green-600">개인용 API 키 사용 시 대부분 무료 범위 내 이용 가능</li>
+                    </ul>
+                  </div>
+
+                  <div className="pt-2 border-t border-gray-100">
+                    <h5 className="text-sm font-black mb-2 flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
+                      유료 티어 (Pay-as-you-go)
+                    </h5>
+                    <div className="grid grid-cols-2 gap-2 ml-3.5">
+                      <div className="p-2 bg-gray-50 rounded-lg">
+                        <p className="text-[10px] text-gray-400">입력 (Input)</p>
+                        <p className="text-xs font-bold">$0.10 / 1M tokens</p>
+                      </div>
+                      <div className="p-2 bg-gray-50 rounded-lg">
+                        <p className="text-[10px] text-gray-400">출력 (Output)</p>
+                        <p className="text-xs font-bold">$0.40 / 1M tokens</p>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-2 ml-3.5">
+                      * 구글 검색 도구 사용 시 1,000회당 약 $0.01의 추가 비용이 발생할 수 있습니다.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100">
+                  <p className="text-[11px] text-amber-800 leading-relaxed">
+                    <span className="font-bold">주의:</span> 모든 비용은 사용자가 등록한 개인 API 키의 구글 클라우드 빌링 계정에서 정산됩니다. 실제 비용은 구글의 정책에 따라 변동될 수 있습니다.
+                  </p>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => setShowCostInfo(false)}
+                className="w-full mt-8 py-4 bg-[#1A1A1A] text-white rounded-2xl font-bold hover:shadow-xl transition-all"
               >
                 닫기
               </button>
