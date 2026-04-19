@@ -26,7 +26,9 @@ import {
   AlertTriangle,
   Mail,
   X,
-  Coins
+  Coins,
+  History,
+  ClipboardList
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -172,6 +174,56 @@ interface Recommendation {
   seasonality: string;
 }
 
+const PATCH_NOTES = [
+  {
+    version: "v1.4.0",
+    date: "2026-04-19",
+    updates: [
+      "패치노트 기능 추가 (업데이트 내역 실시간 확인 가능)",
+      "API 비용 안내 세분화 (최소/최대 예상 비용 및 사례 추가)",
+      "Gemini 3 Flash 모델 최적화 및 안정성 강화"
+    ]
+  },
+  {
+    version: "v1.3.0",
+    date: "2026-04-01",
+    updates: [
+      "API 비용 안내 모달 추가",
+      "API 호출 재시도 로직 도입 (503 UNAVAILABLE 에러 대응)",
+      "사용자 친화적인 에러 메시지 강화"
+    ]
+  },
+  {
+    version: "v1.2.0",
+    date: "2026-03-29",
+    updates: [
+      "서비스명 '돈버는 소싱 AI' 전면 리브랜딩",
+      "API 키 미인증 상태 시각화 강화 (잠금 화면 및 경고 알림)",
+      "전체적인 UI/UX 디자인 개선 (글래스모피즘 및 돈 관련 테마 적용)",
+      "시스템 오류 방지를 위한 ErrorBoundary 도입"
+    ]
+  },
+  {
+    version: "v1.1.0",
+    date: "2026-03-25",
+    updates: [
+      "Gemini 딥 리서치 엔진 탑재 (100만 개 이상 상품 데이터 분석)",
+      "시기(월) 및 시즌별 필터링 기능 추가",
+      "추천 상품 개수 설정 기능 (3, 5, 7, 10개 및 랜덤)",
+      "분석 자동 진행률 표시 바 구현"
+    ]
+  },
+  {
+    version: "v1.0.0",
+    date: "2026-03-20",
+    updates: [
+      "돈버는 소싱 AI 서비스 최초 런칭",
+      "기본 소싱 키워드 추천 알고리즘 구현",
+      "사용법 안내 및 유지보수 문의 모달 구축"
+    ]
+  }
+];
+
 export default function App() {
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [selectedSeason, setSelectedSeason] = useState<string | null>(null);
@@ -183,6 +235,7 @@ export default function App() {
   const [showHowToUse, setShowHowToUse] = useState(false);
   const [showMaintenance, setShowMaintenance] = useState(false);
   const [showCostInfo, setShowCostInfo] = useState(false);
+  const [showPatchNotes, setShowPatchNotes] = useState(false);
   
   // API Key State
   const [apiKey, setApiKey] = useState<string>(() => {
@@ -327,7 +380,7 @@ export default function App() {
       </div>
 
       {/* API Key (Top Right) */}
-      <div className="fixed top-6 right-6 z-[100] flex items-center gap-3">
+      <div className="fixed top-6 right-6 z-[100] flex items-center gap-2">
         <div className={`flex items-center gap-2 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest border shadow-sm transition-all duration-500 backdrop-blur-md ${
           isKeySet 
             ? 'bg-green-50/90 text-green-600 border-green-200 shadow-green-100' 
@@ -336,13 +389,23 @@ export default function App() {
           {isKeySet ? <ShieldCheck className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
           {isKeySet ? 'API키 인증됨' : 'API키 미인증'}
         </div>
+        
         <button 
           onClick={() => setShowCostInfo(true)}
-          className="w-10 h-10 bg-white/80 backdrop-blur-md rounded-full shadow-lg border border-white/50 flex items-center justify-center hover:scale-110 transition-all text-yellow-600"
-          title="API 비용 안내"
+          className="flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-md rounded-full shadow-lg border border-white/50 hover:scale-105 transition-all text-yellow-600 group"
         >
-          <Coins className="w-5 h-5" />
+          <Coins className="w-4 h-4" />
+          <span className="text-xs font-black text-gray-700 group-hover:text-yellow-600">API 비용</span>
         </button>
+
+        <button 
+          onClick={() => setShowPatchNotes(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-md rounded-full shadow-lg border border-white/50 hover:scale-105 transition-all text-indigo-600 group"
+        >
+          <History className="w-4 h-4" />
+          <span className="text-xs font-black text-gray-700 group-hover:text-indigo-600">패치노트</span>
+        </button>
+
         <button 
           onClick={() => setShowKeyInput(!showKeyInput)}
           className={`w-10 h-10 backdrop-blur-md rounded-full shadow-lg border flex items-center justify-center hover:scale-110 transition-all ${
@@ -498,43 +561,58 @@ export default function App() {
 
                 <div className="space-y-4">
                   <div>
-                    <h5 className="text-sm font-black mb-2 flex items-center gap-2">
+                    <h5 className="text-sm font-black mb-2 flex items-center gap-2 text-gray-800">
                       <div className="w-1.5 h-1.5 bg-green-500 rounded-full" />
-                      무료 티어 (Free of Charge)
+                      실제 사용 사례별 비용 (예상)
                     </h5>
-                    <ul className="text-xs text-gray-600 space-y-1.5 ml-3.5 list-disc">
-                      <li>분당 최대 15회 호출 가능 (15 RPM)</li>
-                      <li>분당 최대 100만 토큰 처리 (1M TPM)</li>
-                      <li>일일 최대 1,500회 호출 가능 (1,500 RPD)</li>
-                      <li className="font-bold text-green-600">개인용 API 키 사용 시 대부분 무료 범위 내 이용 가능</li>
-                    </ul>
+                    <div className="space-y-2 ml-3.5">
+                      <div className="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-[11px] font-bold text-gray-700">최소 비용 사례 (3개 추천)</span>
+                          <span className="text-[11px] font-black text-green-600">약 ₩0.05 / 회</span>
+                        </div>
+                        <p className="text-[9px] text-gray-500">입출력 약 800 토큰 소모 기준</p>
+                      </div>
+                      <div className="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-[11px] font-bold text-gray-700">최대 비용 사례 (10개 추천)</span>
+                          <span className="text-[11px] font-black text-blue-600">약 ₩0.25 / 회</span>
+                        </div>
+                        <p className="text-[9px] text-gray-500">입출력 약 2,500 토큰 소모 기준</p>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="pt-2 border-t border-gray-100">
-                    <h5 className="text-sm font-black mb-2 flex items-center gap-2">
-                      <div className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
-                      유료 티어 (Pay-as-you-go)
+                  <div className="pt-4 border-t border-gray-100">
+                    <h5 className="text-sm font-black mb-2 flex items-center gap-2 text-gray-800">
+                      <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full" />
+                      API 요금 정책
                     </h5>
                     <div className="grid grid-cols-2 gap-2 ml-3.5">
                       <div className="p-2 bg-gray-50 rounded-lg">
                         <p className="text-[10px] text-gray-400">입력 (Input)</p>
-                        <p className="text-xs font-bold">$0.10 / 1M tokens</p>
+                        <p className="text-xs font-bold">약 ₩140 / 1M 토큰</p>
+                        <p className="text-[9px] text-gray-400">($0.10 / 1M tokens)</p>
                       </div>
                       <div className="p-2 bg-gray-50 rounded-lg">
                         <p className="text-[10px] text-gray-400">출력 (Output)</p>
-                        <p className="text-xs font-bold">$0.40 / 1M tokens</p>
+                        <p className="text-xs font-bold">약 ₩560 / 1M 토큰</p>
+                        <p className="text-[9px] text-gray-400">($0.40 / 1M tokens)</p>
                       </div>
                     </div>
-                    <p className="text-[10px] text-gray-400 mt-2 ml-3.5">
-                      * 구글 검색 도구 사용 시 1,000회당 약 $0.01의 추가 비용이 발생할 수 있습니다.
-                    </p>
                   </div>
                 </div>
 
-                <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100">
-                  <p className="text-[11px] text-amber-800 leading-relaxed">
-                    <span className="font-bold">주의:</span> 모든 비용은 사용자가 등록한 개인 API 키의 구글 클라우드 빌링 계정에서 정산됩니다. 실제 비용은 구글의 정책에 따라 변동될 수 있습니다.
+                <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 space-y-2">
+                  <p className="text-[11px] text-amber-800 leading-relaxed font-medium">
+                    <span className="font-black">※ 필독 주의사항:</span>
                   </p>
+                  <ul className="text-[10px] text-amber-700 space-y-1 list-disc ml-4">
+                    <li>모든 비용은 사용자 개인 API 키의 구글 클라우드 빌링 계정에서 정산됩니다.</li>
+                    <li>결과물의 길이나 복잡도에 따라 <span className="font-bold underline">실제 비용은 오차가 발생할 수 있습니다.</span></li>
+                    <li>구글 검색 도구 사용 시 1,000회당 약 ₩14 ($0.01)의 추가 비용이 발생할 수 있습니다.</li>
+                    <li>무료 티어(분당 15회 미만) 요청 시 위 비용은 <span className="font-bold text-green-700">전액 무료</span>로 처리됩니다.</li>
+                  </ul>
                 </div>
               </div>
 
@@ -543,6 +621,64 @@ export default function App() {
                 className="w-full mt-8 py-4 bg-[#1A1A1A] text-white rounded-2xl font-bold hover:shadow-xl transition-all"
               >
                 닫기
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Patch Notes Modal */}
+      <AnimatePresence>
+        {showPatchNotes && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[150] flex items-center justify-center p-6"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-white rounded-3xl p-8 w-full max-w-xl shadow-2xl max-h-[80vh] flex flex-col"
+            >
+              <div className="flex justify-between items-center mb-6 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">
+                    <History className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-2xl font-black text-gray-900">돈버는 소싱 AI 패치노트</h3>
+                </div>
+                <button onClick={() => setShowPatchNotes(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto pr-2 space-y-6 custom-scrollbar">
+                {PATCH_NOTES.map((note, idx) => (
+                  <div key={note.version} className={`relative pl-8 ${idx !== PATCH_NOTES.length - 1 ? 'pb-8 border-l-2 border-indigo-100 ml-4' : 'ml-4'}`}>
+                    <div className="absolute -left-[11px] top-0 w-5 h-5 bg-white border-4 border-indigo-500 rounded-full shadow-sm" />
+                    <div className="flex items-baseline gap-3 mb-2">
+                      <span className="text-lg font-black text-indigo-600">{note.version}</span>
+                      <span className="text-xs font-bold text-gray-400 font-mono">{note.date}</span>
+                    </div>
+                    <ul className="space-y-2">
+                      {note.updates.map((update, i) => (
+                        <li key={i} className="flex gap-2 text-sm text-gray-600 leading-relaxed font-medium">
+                          <div className="w-1 h-1 bg-indigo-300 rounded-full mt-2 shrink-0" />
+                          {update}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+
+              <button 
+                onClick={() => setShowPatchNotes(false)}
+                className="w-full mt-8 py-4 bg-[#1A1A1A] text-white rounded-2xl font-bold hover:shadow-xl transition-all shrink-0"
+              >
+                업데이트 내용 확인 완료
               </button>
             </motion.div>
           </motion.div>
@@ -688,7 +824,7 @@ export default function App() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                 {/* Months Grid */}
                 <div>
-                  <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-400 mb-4">Monthly Selection (최대 1개)</h3>
+                  <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-400 mb-4">월별 선택 (최대 1개)</h3>
                   <div className="grid grid-cols-4 gap-2">
                     {MONTHS.map(month => (
                       <button
@@ -708,7 +844,7 @@ export default function App() {
 
                 {/* Seasons Grid */}
                 <div>
-                  <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-400 mb-4">Seasonal Context (최대 1개)</h3>
+                  <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-400 mb-4">시즌 컨텍스트 (최대 1개)</h3>
                   <div className="grid grid-cols-2 gap-2">
                     {SEASONS.map(season => (
                       <button
@@ -874,7 +1010,7 @@ export default function App() {
       <footer className="max-w-5xl mx-auto px-4 py-12 text-center">
         <div className="flex items-center justify-center gap-2 text-gray-400 mb-2">
           <User className="w-4 h-4" />
-          <span className="text-sm font-bold uppercase tracking-widest">Developer: 정혁신</span>
+          <span className="text-sm font-bold uppercase tracking-widest">개발자: 정혁신</span>
         </div>
         <p className="text-xs text-gray-400">© 2026 혁신 소싱 AI. All rights reserved.</p>
       </footer>
