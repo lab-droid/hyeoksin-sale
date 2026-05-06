@@ -111,6 +111,17 @@ const SEASONS = [
   "산업/현장"
 ];
 
+const CATEGORIES = [
+  "과일",
+  "건강식품",
+  "생활잡화",
+  "가전/디지털",
+  "패션/의류",
+  "뷰티/화장품",
+  "반려동물 용품",
+  "캠핑/레저 용품"
+];
+
 const KEYWORDS = [
   "차량용 반사스티커 시트지", "농업용 공사장 손수레", "탁구장 탁구대 네트", "오토바이 음료거치대 배달음료거치대",
   "고점도 드럼팸프 급유기", "실내 접이식 사다리", "방사선보안X선 납 고글", "가정용 식기 건조기",
@@ -176,6 +187,15 @@ interface Recommendation {
 
 const PATCH_NOTES = [
   {
+    version: "v1.5.0",
+    date: "2026-05-06",
+    updates: [
+      "서비스명 '혁신 돈버는 소싱 AI'로 변경",
+      "소싱 카테고리(과일, 건강식품, 생활잡화 등) 선택 기능 추가",
+      "패치노트 실시간 업데이트 자동화 지원 추가"
+    ]
+  },
+  {
     version: "v1.4.0",
     date: "2026-04-19",
     updates: [
@@ -227,6 +247,7 @@ const PATCH_NOTES = [
 export default function App() {
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [selectedSeason, setSelectedSeason] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
@@ -260,9 +281,13 @@ export default function App() {
     setSelectedSeason(prev => prev === season ? null : season);
   };
 
+  const toggleCategory = (category: string) => {
+    setSelectedCategory(prev => prev === category ? null : category);
+  };
+
   const handleAnalyze = async (countOverride?: number) => {
     const count = countOverride || recommendationCount;
-    if (!selectedMonth && !selectedSeason) return;
+    if (!selectedMonth && !selectedSeason && !selectedCategory) return;
     if (!isKeySet) {
       setError("API 키가 설정되지 않았습니다. 우측 상단에서 키를 입력해주세요.");
       setShowKeyInput(true);
@@ -283,10 +308,12 @@ export default function App() {
 
     const prompt = `
         당신은 대한민국 이커머스 전문 상품 소싱 전문가입니다. 
+        사용자가 선택한 카테고리: ${selectedCategory || '지정하지 않음'}
         사용자가 선택한 시기: ${selectedMonth || '지정하지 않음'}
         사용자가 선택한 시즌: ${selectedSeason || '지정하지 않음'}
         
-        Google Gemini 딥 리서치 기능을 활용하여, 대한민국의 100만 개 이상의 상품 데이터 중에서 위 조건에 판매량이 급증할 것으로 예상되는 최적화된 상품 딱 ${count}개를 추천해주세요.
+        Google Gemini 딥 리서치 기능을 활용하여, 대한민국의 100만 개 이상의 상품 데이터 중에서 위 조건에 부합하고 판매량이 급증할 것으로 예상되는 최적화된 상품 딱 ${count}개를 추천해주세요.
+        만약 카테고리가 지정되었다면 반드시 해당 카테고리에 속하는 상품만 추천해야 합니다.
         
         [참고용 소싱 키워드 형식]
         차량용 반사스티커 시트지, 농업용 공사장 손수레, 탁구장 탁구대 네트, 오토바이 음료거치대 배달음료거치대, 고점도 드럼팸프 급유기
@@ -350,6 +377,7 @@ export default function App() {
   const reset = () => {
     setSelectedMonth(null);
     setSelectedSeason(null);
+    setSelectedCategory(null);
     setRecommendations([]);
     setProgress(0);
     setError(null);
@@ -357,8 +385,8 @@ export default function App() {
   };
 
   const handleRandomAnalyze = () => {
-    if (!selectedMonth && !selectedSeason) {
-      setError("먼저 시기 또는 시즌을 최소 1개 이상 선택해주세요.");
+    if (!selectedMonth && !selectedSeason && !selectedCategory) {
+      setError("먼저 시기, 시즌 또는 카테고리를 최소 1개 이상 선택해주세요.");
       return;
     }
     const random = Math.floor(Math.random() * 10) + 1;
@@ -647,7 +675,7 @@ export default function App() {
                   <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">
                     <History className="w-6 h-6" />
                   </div>
-                  <h3 className="text-2xl font-black text-gray-900">돈버는 소싱 AI 패치노트</h3>
+                  <h3 className="text-2xl font-black text-gray-900">혁신 돈버는 소싱 AI 패치노트</h3>
                 </div>
                 <button onClick={() => setShowPatchNotes(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
                   <X className="w-6 h-6" />
@@ -707,7 +735,7 @@ export default function App() {
                 </button>
               </div>
               <p className="text-gray-500 text-sm mb-6">
-                돈버는 소싱 AI 분석을 위해 Google API 키가 필요합니다. 입력하신 키는 브라우저에만 안전하게 저장됩니다.
+                혁신 돈버는 소싱 AI 분석을 위해 Google API 키가 필요합니다. 입력하신 키는 브라우저에만 안전하게 저장됩니다.
               </p>
               <div className="space-y-4">
                 <div className="relative">
@@ -739,7 +767,7 @@ export default function App() {
         <div className="absolute inset-0 bg-gradient-to-r from-indigo-900/90 to-purple-900/80 z-10" />
         <img 
           src="https://picsum.photos/seed/money/1920/1080?blur=2" 
-          alt="돈버는 소싱 AI" 
+          alt="혁신 돈버는 소싱 AI" 
           className="w-full h-full object-cover opacity-40 mix-blend-overlay"
           referrerPolicy="no-referrer"
         />
@@ -757,7 +785,7 @@ export default function App() {
             animate={{ opacity: 1, y: 0 }}
             className="text-4xl md:text-6xl font-black text-white tracking-tighter mb-4 drop-shadow-lg"
           >
-            <span className="text-yellow-400">돈</span>버는 소싱 AI
+            <span className="text-indigo-400">혁신</span> <span className="text-yellow-400">돈</span>버는 소싱 AI
           </motion.h1>
           <motion.p 
             initial={{ opacity: 0 }}
@@ -765,8 +793,8 @@ export default function App() {
             transition={{ delay: 0.2 }}
             className="text-sm md:text-lg text-indigo-100/90 font-medium max-w-2xl"
           >
-            대한민국 100만 개 이상의 상품 데이터를 <span className="text-yellow-400 font-bold">돈</span>버는 소싱 AI가 분석하여<br className="hidden md:block" />
-            시즌별 가장 강력한 매출을 발생시킬 최적의 상품을 발굴합니다.
+            대한민국 100만 개 이상의 상품 데이터를 <span className="text-indigo-400 font-bold">혁신</span> <span className="text-yellow-400 font-bold">돈</span>버는 소싱 AI가 분석하여<br className="hidden md:block" />
+            선택된 카테고리와 시즌별 가장 강력한 매출을 발생시킬 <br /> 최적의 상품을 발굴합니다.
           </motion.p>
         </div>
       </header>
@@ -818,47 +846,69 @@ export default function App() {
             <section>
               <div className="flex items-center gap-3 mb-8">
                 <Calendar className="w-8 h-8 text-[#1A1A1A]" />
-                <h2 className="text-2xl font-bold tracking-tight">시기 및 시즌 선택</h2>
+                <h2 className="text-2xl font-bold tracking-tight">발굴 조건 설정</h2>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                {/* Months Grid */}
+              <div className="space-y-8">
+                {/* Categories Grid */}
                 <div>
-                  <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-400 mb-4">월별 선택 (최대 1개)</h3>
-                  <div className="grid grid-cols-4 gap-2">
-                    {MONTHS.map(month => (
+                  <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-400 mb-4">카테고리 선택 (최대 1개)</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {CATEGORIES.map(category => (
                       <button
-                        key={month}
-                        onClick={() => toggleMonth(month)}
+                        key={category}
+                        onClick={() => toggleCategory(category)}
                         className={`py-3 rounded-xl text-sm font-bold transition-all duration-200 ${
-                          selectedMonth === month
+                          selectedCategory === category
                             ? 'bg-[#1A1A1A] text-white shadow-lg'
-                            : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                            : 'bg-indigo-50/50 text-indigo-600 hover:bg-indigo-100'
                         }`}
                       >
-                        {month}
+                        {category}
                       </button>
                     ))}
                   </div>
                 </div>
 
-                {/* Seasons Grid */}
-                <div>
-                  <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-400 mb-4">시즌 컨텍스트 (최대 1개)</h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    {SEASONS.map(season => (
-                      <button
-                        key={season}
-                        onClick={() => toggleSeason(season)}
-                        className={`py-3 px-4 rounded-xl text-xs font-bold text-left transition-all duration-200 ${
-                          selectedSeason === season
-                            ? 'bg-[#1A1A1A] text-white shadow-lg'
-                            : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
-                        }`}
-                      >
-                        {season}
-                      </button>
-                    ))}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* Months Grid */}
+                  <div>
+                    <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-400 mb-4">월별 선택 (최대 1개)</h3>
+                    <div className="grid grid-cols-4 gap-2">
+                      {MONTHS.map(month => (
+                        <button
+                          key={month}
+                          onClick={() => toggleMonth(month)}
+                          className={`py-3 rounded-xl text-sm font-bold transition-all duration-200 ${
+                            selectedMonth === month
+                              ? 'bg-[#1A1A1A] text-white shadow-lg'
+                              : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                          }`}
+                        >
+                          {month}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Seasons Grid */}
+                  <div>
+                    <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-400 mb-4">시즌 컨텍스트 (최대 1개)</h3>
+                    <div className="grid grid-cols-2 gap-2">
+                      {SEASONS.map(season => (
+                        <button
+                          key={season}
+                          onClick={() => toggleSeason(season)}
+                          className={`py-3 px-4 rounded-xl text-xs font-bold text-left transition-all duration-200 ${
+                            selectedSeason === season
+                              ? 'bg-[#1A1A1A] text-white shadow-lg'
+                              : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                          }`}
+                        >
+                          {season}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -866,7 +916,7 @@ export default function App() {
               <div className="mt-12 flex flex-col items-center">
                 <div className="text-sm text-gray-400 mb-6 flex items-center gap-2">
                   <Info className="w-4 h-4" />
-                  <span>선택된 항목: {[selectedMonth, selectedSeason].filter(Boolean).join(", ") || "없음"}</span>
+                  <span>선택된 항목: {[selectedCategory, selectedMonth, selectedSeason].filter(Boolean).join(", ") || "없음"}</span>
                 </div>
 
                 {/* Recommendation Count Selector */}
@@ -914,9 +964,9 @@ export default function App() {
                 
                 <button
                   onClick={() => handleAnalyze()}
-                  disabled={(!selectedMonth && !selectedSeason) || isAnalyzing}
+                  disabled={(!selectedMonth && !selectedSeason && !selectedCategory) || isAnalyzing}
                   className={`group relative px-12 py-5 rounded-full font-black text-lg transition-all duration-300 flex items-center gap-3 ${
-                    (selectedMonth || selectedSeason) && !isAnalyzing
+                    (selectedMonth || selectedSeason || selectedCategory) && !isAnalyzing
                       ? 'bg-[#1A1A1A] text-white hover:scale-105 hover:shadow-2xl'
                       : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                   }`}
@@ -982,7 +1032,7 @@ export default function App() {
 
               <div className="mt-12 p-8 bg-gray-50 rounded-3xl border border-dashed border-gray-300 text-center">
                 <p className="text-gray-500 font-medium mb-4">
-                  위 추천 상품들은 선택하신 <span className="text-[#1A1A1A] font-bold">"{[selectedMonth, selectedSeason].filter(Boolean).join(", ")}"</span> 조건에 맞춰<br/>
+                  위 추천 상품들은 선택하신 <span className="text-[#1A1A1A] font-bold">"{[selectedCategory, selectedMonth, selectedSeason].filter(Boolean).join(", ")}"</span> 조건에 맞춰<br/>
                   <span className="text-blue-600 font-bold">대한민국 100만 개 이상의 상품 데이터</span>를 딥 리서치하여 도출된 최적의 결과입니다.
                 </p>
                 <div className="flex justify-center gap-4">
@@ -1012,7 +1062,7 @@ export default function App() {
           <User className="w-4 h-4" />
           <span className="text-sm font-bold uppercase tracking-widest">개발자: 정혁신</span>
         </div>
-        <p className="text-xs text-gray-400">© 2026 혁신 소싱 AI. All rights reserved.</p>
+        <p className="text-xs text-gray-400">© 2026 혁신 돈버는 소싱 AI. All rights reserved.</p>
       </footer>
 
       {/* API Key Required Overlay */}
@@ -1033,7 +1083,7 @@ export default function App() {
               </div>
               <h2 className="text-3xl font-black text-gray-900 mb-4">서비스 이용 불가</h2>
               <p className="text-gray-500 mb-10 leading-relaxed text-lg font-medium">
-                돈버는 소싱 AI를 사용하기 위해서는 <span className="text-red-500 font-black underline underline-offset-4">Google API 키 인증</span>이 반드시 필요합니다.<br />
+                혁신 돈버는 소싱 AI를 사용하기 위해서는 <span className="text-red-500 font-black underline underline-offset-4">Google API 키 인증</span>이 반드시 필요합니다.<br />
                 우측 상단의 설정 버튼을 통해 키를 등록해주세요.
               </p>
               <button 
