@@ -113,8 +113,12 @@ const SEASONS = [
 
 const CATEGORIES = [
   "과일",
+  "식품",
   "건강식품",
   "생활잡화",
+  "홈/인테리어",
+  "주방용품",
+  "출산/유아동",
   "가전/디지털",
   "패션/의류",
   "뷰티/화장품",
@@ -187,12 +191,21 @@ interface Recommendation {
 
 const PATCH_NOTES = [
   {
+    version: "v1.5.1",
+    date: "2026-05-09",
+    updates: [
+      "신규 카테고리 '식품' 추가",
+      "수요 급증 예상 3개 카테고리(홈/인테리어, 주방용품, 출산/유아동) 추가"
+    ]
+  },
+  {
     version: "v1.5.0",
     date: "2026-05-06",
     updates: [
       "서비스명 '혁신 돈버는 소싱 AI'로 변경",
       "소싱 카테고리(과일, 건강식품, 생활잡화 등) 선택 기능 추가",
-      "패치노트 실시간 업데이트 자동화 지원 추가"
+      "패치노트 실시간 업데이트 자동화 지원 추가",
+      "분석 결과물 자동 .txt 다운로드 기능 탑재"
     ]
   },
   {
@@ -285,6 +298,35 @@ export default function App() {
     setSelectedCategory(prev => prev === category ? null : category);
   };
 
+  const downloadRecommendations = (recs: Recommendation[]) => {
+    const contextStr = [selectedCategory, selectedMonth, selectedSeason].filter(Boolean).join(", ") || "없음";
+    let fileContent = `[혁신 돈버는 소싱 AI - 추천 결과]\n`;
+    fileContent += `선택된 조건: ${contextStr}\n`;
+    fileContent += `추출 일시: ${new Date().toLocaleString('ko-KR')}\n\n`;
+    fileContent += `=========================================\n\n`;
+
+    recs.forEach((rec, idx) => {
+      fileContent += `${idx + 1}. ${rec.keyword}\n`;
+      fileContent += `   - 추천 이유: ${rec.reason}\n`;
+      fileContent += `   - 시즌 특징: ${rec.seasonality}\n\n`;
+    });
+
+    const blob = new Blob([fileContent], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    
+    // Format timestamp for filename
+    const now = new Date();
+    const timestamp = `${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}_${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}`;
+    
+    link.download = `혁신소싱AI_추천결과_${timestamp}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const handleAnalyze = async (countOverride?: number) => {
     const count = countOverride || recommendationCount;
     if (!selectedMonth && !selectedSeason && !selectedCategory) return;
@@ -360,6 +402,9 @@ export default function App() {
       
       setRecommendations(data);
       setProgress(100);
+      
+      // Auto-download the results
+      setTimeout(() => downloadRecommendations(data), 500);
     } catch (err) {
       console.error("Analysis Error:", err);
       const errorMessage = err instanceof Error ? err.message : String(err);
@@ -992,12 +1037,20 @@ export default function App() {
                   <TrendingUp className="w-8 h-8 text-[#1A1A1A]" />
                   <h2 className="text-3xl font-black tracking-tighter">추천 소싱 리스트</h2>
                 </div>
-                <button 
-                  onClick={reset}
-                  className="text-sm font-bold text-gray-400 hover:text-[#1A1A1A] transition-colors"
-                >
-                  다시 선택하기
-                </button>
+                <div className="flex items-center gap-4">
+                  <button 
+                    onClick={() => downloadRecommendations(recommendations)}
+                    className="text-sm font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
+                  >
+                    .txt 결과 저장
+                  </button>
+                  <button 
+                    onClick={reset}
+                    className="text-sm font-bold text-gray-400 hover:text-[#1A1A1A] transition-colors"
+                  >
+                    다시 선택하기
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-6">
